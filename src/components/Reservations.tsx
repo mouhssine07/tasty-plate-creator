@@ -39,17 +39,44 @@ const Reservations = () => {
     
     setIsSubmitting(true);
     
-    // Here we would typically send data to a PHP backend
-    // For now, we'll simulate a successful submission
-    setTimeout(() => {
-      toast({
-        title: "Reservation Request Received",
-        description: "We'll confirm your reservation shortly via email.",
+    try {
+      // Create form data for PHP submission
+      const formDataToSubmit = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        formDataToSubmit.append(key, value);
       });
       
-      setFormData(initialFormData);
+      // Submit to PHP backend
+      const response = await fetch('/process_reservation.php', {
+        method: 'POST',
+        body: formDataToSubmit,
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message,
+        });
+        setFormData(initialFormData);
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Something went wrong. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast({
+        title: "Error",
+        description: "Failed to connect to server. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
       setIsSubmitting(false);
-    }, 1500);
+    }
   };
 
   // Get today's date in YYYY-MM-DD format for min date attribute
