@@ -1,52 +1,63 @@
-
 <?php
 // Database configuration
 $servername = "localhost";
-$username = "root"; // Default XAMPP username
-$password = ""; // Default XAMPP password is empty
-$dbname = "restaurant_db"; // You'll need to create this database in phpMyAdmin
+$username = "root";
+$password = "";
+$dbname = "restaurant_db";
 
 // Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
 
 // Check connection
 if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+    die(json_encode([
+        "success" => false,
+        "message" => "Database connection failed: " . $conn->connect_error
+    ]));
 }
 
-// Process form data when form is submitted
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Get form data and sanitize inputs
-    $name = $conn->real_escape_string($_POST['name']);
-    $email = $conn->real_escape_string($_POST['email']);
-    $phone = $conn->real_escape_string($_POST['phone']);
-    $date = $conn->real_escape_string($_POST['date']);
-    $time = $conn->real_escape_string($_POST['time']);
-    $guests = $conn->real_escape_string($_POST['guests']);
-    $occasion = isset($_POST['occasion']) ? $conn->real_escape_string($_POST['occasion']) : "";
-    $specialRequests = isset($_POST['specialRequests']) ? $conn->real_escape_string($_POST['specialRequests']) : "";
+// Only process POST request
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    // Sanitize inputs
+    $name = trim($_POST['name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
+    $date = trim($_POST['date'] ?? '');
+    $time = trim($_POST['time'] ?? '');
+    $guests = trim($_POST['guests'] ?? '');
+    $occasion = trim($_POST['occasion'] ?? '');
+    $specialRequests = trim($_POST['specialRequests'] ?? '');
 
-    // SQL query to insert data
-    $sql = "INSERT INTO reservations (name, email, phone, date, time, guests, occasion, special_requests)
-            VALUES ('$name', '$email', '$phone', '$date', '$time', '$guests', '$occasion', '$specialRequests')";
-
-    // Response array
-    $response = [];
-
-    // Execute query and check if successful
-    if ($conn->query($sql) === TRUE) {
-        $response['success'] = true;
-        $response['message'] = "Reservation Request Received! We'll confirm your reservation shortly via email.";
-    } else {
-        $response['success'] = false;
-        $response['message'] = "Error: " . $sql . "<br>" . $conn->error;
+    // Simple validation (optional, you can expand it)
+    if (empty($name) || empty($email) || empty($phone) || empty($date) || empty($time) || empty($guests)) {
+        echo json_encode([
+            "success" => false,
+            "message" => "Please fill in all required fields."
+        ]);
+        $conn->close();
+        exit;
     }
 
-    // Return JSON response
-    header('Content-Type: application/json');
-    echo json_encode($response);
-    
-    // Close connection
+    // Prepare SQL (to avoid SQL injection)
+    $stmt = $conn->prepare("INSERT INTO reservation (name, email, phone, date, time, guests, occasion, special_requests) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssssss", $name, $email, $phone, $date, $time, $guests, $occasion, $specialRequests);
+
+    // Execute and send response
+    if ($stmt->execute()) {
+        echo json_encode([
+            "success" => true,
+            "message" => "Reservation received! We'll confirm it via email soon."
+        ]);
+    } else {
+        echo json_encode([
+            "success" => false,
+            "message" => "Error: " . $stmt->error
+        ]);
+    }
+
+    // Clean up
+    $stmt->close();
     $conn->close();
     exit;
 }
